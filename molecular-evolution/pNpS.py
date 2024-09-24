@@ -35,26 +35,6 @@ def get_codon_substitution_types(codon):
                     
     return syn_sites, nonsyn_sites
 
-def count_pairwise_differences(seq1, seq2):
-    """ Count the number of pairwise differences between two codons. """
-    differences = sum(a != b for a, b in zip(seq1, seq2))
-    return differences
-
-def calculate_nucleotide_diversity(pairwise_diffs, total_sites):
-    """ Calculate nucleotide diversity (π) from pairwise differences. """
-    if total_sites == 0:
-        return 0
-    return pairwise_diffs / total_sites
-
-def calculate_pi_finite(pi, L):
-    """ Calculate nucleotide diversity (π) with Jukes-Cantor correction. """
-    pi_per_site = pi / L
-    if 1 - 4 * pi_per_site / 3 > 0:
-        pi_finite = pi_per_site / (1 - 4 * pi_per_site / 3)
-        return pi_finite
-    else:
-        return float('nan')  # Handle cases where correction cannot be applied
-
 def process_alignment(alignment_file):
     print(f"Processing alignment: {alignment_file}")
     gene_name = os.path.basename(alignment_file).split(".")[0]
@@ -73,8 +53,6 @@ def process_alignment(alignment_file):
     total_synonymous_diffs = 0
     total_nonsynonymous_diffs = 0
 
-    pairwise_diffs_syn = 0
-    pairwise_diffs_nonsyn = 0
 
     for codon_index in range(0, len(alignment[0].seq), 3):
         codons = [str(record.seq[codon_index:codon_index+3]) for record in alignment]
@@ -109,18 +87,10 @@ def process_alignment(alignment_file):
             
             if amino_acid1 == amino_acid2:
                 total_synonymous_diffs += count_pairwise_differences(codon1, codon2)
-                pairwise_diffs_syn += count_pairwise_differences(codon1, codon2)
             else:
                 total_nonsynonymous_diffs += count_pairwise_differences(codon1, codon2)
-                pairwise_diffs_nonsyn += count_pairwise_differences(codon1, codon2)
 
-    pi_s = calculate_nucleotide_diversity(total_synonymous_diffs, total_synonymous_sites)
-    pi_n = calculate_nucleotide_diversity(total_nonsynonymous_diffs, total_nonsynonymous_sites)
-    pi_s_finite = calculate_pi_finite(pi_s, L)
-    pi_n_finite = calculate_pi_finite(pi_n, L)
-
-    return gene_name, total_synonymous_sites, total_nonsynonymous_sites, total_synonymous_diffs, total_nonsynonymous_diffs, pi_s, pi_n, pi_s_finite, pi_n_finite
-
+    return gene_name, total_synonymous_sites, total_nonsynonymous_sites
 def main(alignment_file):
     output_file = f"{os.path.basename(alignment_file).split('.')[0]}_summary_output.txt"
     result = process_alignment(alignment_file)
@@ -131,7 +101,7 @@ def main(alignment_file):
 
     # Write results to file
     with open(output_file, "w") as f_out:
-        f_out.write("Gene\tNumber Synonymous Sites\tNumber NonSyn Sites\tTotal Synonymous Diffs\tTotal NonSyn Diffs\tpiS\tpiN\tpiS_Finite\tpiN_Finite\n")
+        f_out.write("Gene\tNumber Synonymous Sites\tNumber NonSyn Sites\n")
         f_out.write("\t".join(map(str, result)) + "\n")
 
     print(f"Results written to {output_file}")
