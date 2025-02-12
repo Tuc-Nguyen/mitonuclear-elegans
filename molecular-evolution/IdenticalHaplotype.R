@@ -64,8 +64,8 @@ df[] <- lapply(df, function(col) {
 })
 
 # Initialize an empty data frame to store results
-results.1 <- data.frame()
-results.2 <- data.frame()
+results <- data.frame()
+
 # Loop over all pairs of columns between 5 and 554
 for (i in 5:543) {  # Outer loop for the first column
   for (j in (i + 1):544) {  # Inner loop for the second column
@@ -75,18 +75,18 @@ for (i in 5:543) {  # Outer loop for the first column
     col2_name <- colnames(df)[j]
     
     # Compare the values between the two columns
-    diff_count.1 <- sum((df[[i]] != df[[j]]) | is.na(df[[i]]) | is.na(df[[j]]))
-    diff_count.2 <- sum(df[[i]] != df[[j]], na.rm = TRUE)
+    diff_count <- sum((df[[i]] != df[[j]]) | is.na(df[[i]]) | is.na(df[[j]]))
+    
     # Store the result in the result dataframe
-    results.1 <- rbind(results.1, data.frame(Strain.1 = col1_name, Strain.2 = col2_name, Diff_Count = diff_count.1))
-    results.2 <- rbind(results.2, data.frame(Strain.1 = col1_name, Strain.2 = col2_name, Diff_Count = diff_count.2))
+    results <- rbind(results, data.frame(Strain.1 = col1_name, Strain.2 = col2_name, Diff_Count = diff_count))
+    
   }
 }
 
-write.csv(results.1, "Results.1.csv", row.names = F)
-write.csv(results.2, "Results.2.csv", row.names = F)
+write.csv(results, "Results.csv", row.names = F)
 
-identicalpairs = subset(results.1, Diff_Count ==0)
+
+identicalpairs = subset(results, Diff_Count ==0)
 a = data.frame( Strain.1 = unique(c(identicalpairs$Strain.1,identicalpairs$Strain.2)), Number.1 = c(1:218))
 b = data.frame( Strain.2 = unique(c(identicalpairs$Strain.1,identicalpairs$Strain.2)), Number.2 = c(1:218))
 identicalpairs = plyr::join(identicalpairs,a, type = "left")
@@ -117,7 +117,7 @@ final.isotype$Haplotype = ifelse(final.isotype$Haplotype == "ECA250", "MY1",
                                                                            ifelse(final.isotype$Haplotype =="EG4347", "PX179", final.isotype$Haplotype))))))))
 
 
-others = data.frame(Strain = unique(c(results.1$Strain.1, results.1$Strain.2)))
+others = data.frame(Strain = unique(c(results$Strain.1, results$Strain.2)))
 others$Haplotype = others$Strain
 others = subset(others, !(Strain %in% final.isotype$Strain))
 others = rbind(others, final.isotype)
