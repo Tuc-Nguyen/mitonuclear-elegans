@@ -10,25 +10,15 @@ library(tidyr)
 library(stringr)
 library(readxl)
 
+source("Functions.R", echo=TRUE)
 
 
 all <- read.vcfR("FINAL.annotated.vcf", verbose = FALSE)
 df = cbind(as.data.frame(all@fix)[c(1,2,4,5)],extract.gt(all, element = 'GT', as.numeric = F))
 geno = df
 genomat <- as.matrix(t(geno[,5:544]))
-allele.counts <- apply(genomat, 2, function(col) length(unique(col)))
 
-# Function to count individuals for each allele
-count_alleles_multiallelic <- function(genotype_column) {
-  # Get the unique alleles (removing NA)
-  alleles <- unique(genotype_column[!is.na(genotype_column)])
-  
-  # Count occurrences of each allele
-  allele_counts <- sapply(alleles, function(allele) sum(genotype_column == allele, na.rm = TRUE))
-  
-  # Return a named vector with allele counts
-  return(allele_counts)
-}
+allele.counts <- apply(genomat, 2, function(col) length(unique(col)))
 
 AlleleCount <- data.frame(
   SNP = names(allele.counts),  # Column names from genomat
@@ -64,7 +54,12 @@ df[] <- lapply(df, function(col) {
 })
 
 # Initialize an empty data frame to store results
-results <- data.frame()
+results.1 <- data.frame()
+results.2 <- data.frame()
+
+results_list <- vector("list", (543*544)/2)  # Roughly preallocating space
+
+counter <- 1  # Initialize index for storing results
 
 # Loop over all pairs of columns between 5 and 554
 for (i in 5:543) {  # Outer loop for the first column
@@ -75,18 +70,19 @@ for (i in 5:543) {  # Outer loop for the first column
     col2_name <- colnames(df)[j]
     
     # Compare the values between the two columns
-    diff_count <- sum((df[[i]] != df[[j]]) | is.na(df[[i]]) | is.na(df[[j]]))
+    diff_count.1 <- sum((df[[i]] != df[[j]]) | is.na(df[[i]]) | is.na(df[[j]]))
+    results_list[[counter]] <- list(Strain.1 = col1_name, Strain.2 = col2_name, Diff_Count = diff_count.1)
+    counter <- counter + 1
     
-    # Store the result in the result dataframe
-    results <- rbind(results, data.frame(Strain.1 = col1_name, Strain.2 = col2_name, Diff_Count = diff_count))
-    
+    #results.2 <- rbind(results.2, data.frame(Strain.1 = col1_name, Strain.2 = col2_name, Diff_Count = diff_count.2))
   }
 }
 
-write.csv(results, "Results.csv", row.names = F)
+results.1 <- do.call(rbind, lapply(results_list, as.data.frame))
 
+write.csv(results.1, "Results.1.csv", row.names = F)
 
-identicalpairs = subset(results, Diff_Count ==0)
+identicalpairs = subset(results.1, Diff_Count ==0)
 a = data.frame( Strain.1 = unique(c(identicalpairs$Strain.1,identicalpairs$Strain.2)), Number.1 = c(1:218))
 b = data.frame( Strain.2 = unique(c(identicalpairs$Strain.1,identicalpairs$Strain.2)), Number.2 = c(1:218))
 identicalpairs = plyr::join(identicalpairs,a, type = "left")
@@ -106,19 +102,43 @@ for(iso in unique(assigned$Isotype)){
   tempdf = data.frame(Strain = unique(c(subdf$Strain.1, subdf$Strain.2)), Haplotype = iso)
   final.isotype = rbind(final.isotype, tempdf)
 }
-
-final.isotype$Haplotype = ifelse(final.isotype$Haplotype == "ECA250", "MY1",
-                                 ifelse(final.isotype$Haplotype =="CB4932", "N2",
-                                        ifelse(final.isotype$Haplotype =="ECA1074", "ECA2546", 
-                                               ifelse(final.isotype$Haplotype =="ECA1887", "ECA2041",
-                                                      ifelse(final.isotype$Haplotype =="JT11398", "PB303",
-                                                             ifelse(final.isotype$Haplotype =="JU2106", "MY10", 
-                                                                    ifelse(final.isotype$Haplotype =="ECA1843", "ECA2367",
-                                                                           ifelse(final.isotype$Haplotype =="EG4347", "PX179", final.isotype$Haplotype))))))))
-
-
-others = data.frame(Strain = unique(c(results$Strain.1, results$Strain.2)))
+others = data.frame(Strain = unique(c(results.1$Strain.1, results.1$Strain.2)))
 others$Haplotype = others$Strain
 others = subset(others, !(Strain %in% final.isotype$Strain))
 others = rbind(others, final.isotype)
 write.table(others, "FINAL ISOTYPES.txt", row.names = F)
+
+
+uniquepairs = subset(results.1, Diff_Count ==1)
+tableS3 <- list()
+# Loop through each pair to find the differing row
+for (i in 1:nrow(uniquepairs)) {
+  col1 <- uniquepairs$Strain.1[i]
+  col2 <- uniquepairs$Strain.2[i]
+  
+  # Get the rows where the two columns differ
+  diff_rows <- which(df[[col1]] != df[[col2]])
+  
+  # Store the results with the row name where they differ
+  if (length(diff_rows) == 1) {
+    tableS3[[i]] <- data.frame(
+      Strain.1 = col1,
+      Strain.2 = col2,
+      SNP = rownames(df)[diff_rows]
+    )
+  }
+}
+
+# Combine all results into a single dataframe
+final <- do.call(rbind, tableS3)
+final = subset(final, Strain.1 %in% unique(others$Haplotype))
+final = subset(final, Strain.2 %in% unique(others$Haplotype))
+final <- final %>%
+  separate(SNP, into = c("CHROM", "POS"), sep = "_")
+final = plyr::join(final, remained[c(1,2,5,8)])
+final <- final %>%
+  distinct()
+
+
+##Final strain pairs that differ by 1 SNP
+write.csv(final, "Final S3.csv", row.names = F, na = " ")
