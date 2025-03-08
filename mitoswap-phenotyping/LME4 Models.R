@@ -19,6 +19,8 @@ nuclear=factor(df$Nuclear)
 mito=factor(df$Mito)
 batch = factor(df$Batch)
 
+##Table 1
+
 FM=lmer(df$WORMLENGTH ~ 1 + (1|batch) + (1|nuclear)+(1|mito)+treatment+
           (1|nuclear:treatment)+(1|mito:treatment)+(1|nuclear:mito)+
           (1|nuclear:mito:treatment))
