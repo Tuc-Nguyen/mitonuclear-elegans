@@ -40,6 +40,7 @@ for(condition in unique(working$Condition)){
   mean_diff = rbind(mean_diff , a)}
 
 
+
 summary.data = data.frame()
 
 for (condition in conditions) {
@@ -82,20 +83,23 @@ for (condition in conditions) {
 
 
 all = join(mean_diff,summary.data)
+## only statistically significant and at least 5% difference 
 all$Significance = ifelse(all$Pvalue> 0.05,"NS",
-                               ifelse(all$Diff> 1,"black","red"))
+                               ifelse(all$Diff< 1.05 & all$Diff  >0.95, "NS",
+                                      ifelse(all$Diff> 1 ,"black","red")))
 
+tempo = all
+tempo$Native = "Matched"
+tempo$Diff = 1
 
-#####FOR GRAPHING
-tempDF = all
-tempDF$Native = "Matched"
-tempDF$Diff = 1
+tempo = rbind(tempo,all)
+conditions = sort(unique(tempo$Condition))
 
-final = rbind(tempDF,all)
-conditions = sort(unique(final$Condition))
+dir.create("2025 Coadaptation Plot")
+setwd("2025 Coadaptation Plot")
 
-for (condition in unique(final$Condition)) {
-  subcondition = subset(final, Condition == condition)
+for (condition in unique(tempo$Condition)) {
+  subcondition = subset(tempo, Condition == condition)
   plot.condition <- list()
   for (nuclear in unique(subcondition$Nuclear)) {  # Loop through each Nuclear
     subnuclear = subset(subcondition, Nuclear == nuclear)  
@@ -103,7 +107,7 @@ for (condition in unique(final$Condition)) {
     p <- ggplot(data = subnuclear, aes(x = Native, y = Diff, group = Mito)) +
       geom_line(aes(color = Significance)) +
       geom_point(fill = 'black', shape = 21, size = 2, stroke = 0) +
-      scale_y_continuous(limits = c(0.8, 1.15), breaks = seq(0.8, 1.15, by = 0.1), name = expression(paste(Delta, "Size"))) +
+      scale_y_continuous(limits = c(0.83, 1.21), breaks = seq(0.83, 1.21, by = 0.1), name = expression(paste(Delta, "Size"))) +
       scale_color_manual(name = NULL, values = c('NS' = 'gray90', 'red' = 'red', 'black' = 'black')) +
       xlab("Mitonuclear Combination") +
       ggtitle(title) +
@@ -123,4 +127,3 @@ for (condition in unique(final$Condition)) {
   # Save all plots for this condition into one PDF file
   ggsave(paste0(condition, ".pdf"), plot = combined_plot, width = 7.5 , height = 5)
 }
- 
