@@ -25,20 +25,9 @@ for (condition in conditions) {
           print("Nada!")
         } else {
           specific.combo <- subset(subCondition, Nuclear %in% c(i, j) & Mito %in% c(i, j))
-          title <- paste("Mito-Nuclear Epistasis Analysis between", i, "and", j, "pair combination in", condition, ".txt")
+          title <- paste("Mito-Nuclear Epistasis Analysis between", i, "and", j, "pair combination in", condition)
           
           a = aggregate( WORMLENGTH ~ Nuclear+Mito+Status,FUN = mean,specific.combo)
-          # b = subset(a, Nuclear == i)
-          # bb = subset(specific.combo, Nuclear == i)
-          # lmb <- lmPerm::lmp(WORMLENGTH ~ Status, data = bb)
-          # pb = car::Anova(lmb, type = 3)[["Pr(>F)"]][2]
-          # difference.1 = b$WORMLENGTH[1]-b$WORMLENGTH[2]
-          # c = subset(a, Nuclear == j)
-          # difference.2 = c$WORMLENGTH[1]-c$WORMLENGTH[2]
-          # cc = subset(specific.combo, Nuclear == j)
-          # lmc <- lmPerm::lmp(WORMLENGTH ~ Status, data = cc)
-          # pc = car::Anova(lmc, type = 3)[["Pr(>F)"]][2]
-          
           print(title)
           FM <- lmer(WORMLENGTH ~ Nuclear + Mito + Nuclear *Mito + (1|Batch), data = specific.combo)
           FM2 <- lmer(WORMLENGTH ~ Nuclear + Mito + (1|Batch), data = specific.combo)
@@ -58,7 +47,6 @@ for (condition in conditions) {
     second <- rbind(second, first)
   }
   final <- rbind(final, second)
-  # filename <- paste0("NO ORIGINAL Mito-Nuclear Epistasis Analysis of all combination in ", condition, ".txt")
 }
 
 
@@ -78,8 +66,8 @@ significant <- significant[!duplicated(significant$UniqueConditionPair), ]
 
 # Get unique conditions and create directory
 conditions <- sort(unique(significant$Condition))
-dir.create("Epistatic Interaction Plot")
-setwd("Epistatic Interaction Plot")
+dir.create("2025 Epistatic Plot")
+setwd("2025 Epistatic Plot")
 
 for (condition in conditions) {
   subCondition <- subset(significant, Condition == condition)
@@ -145,10 +133,10 @@ for (condition in conditions) {
   print("And... That's a wrap!")
 }
 
-nodes <- as.data.frame(c(1,2,3,4,5,6))
+nodes <- as.data.frame(c(1,2,3,4,5))
 nodes$id <- paste0("s",seq.int(nrow(nodes)))
-nodes$strain <- nodes$`c(1,2,3,4,5,6)`
-nodes$strainname <- c("ECA2602","ECA2546","ECA1493","ECA1298","ECA1229","ECA2367")
+nodes$strain <- nodes$`c(1,2,3,4,5)`
+nodes$strainname <- c("ECA2602","ECA2546","ECA1493","ECA1298","ECA1229")
 nodes[1] <- NULL
 
 require(igraph)
@@ -166,7 +154,7 @@ for(condition in unique(final$Condition)){
   l <- layout_in_circle(net)
   title = paste(condition)
   #pdf(title) 
-  plot<- plot(net,vertex.label=NA,edge.curved=0,vertex.color=c("#3A86AD","#05828B","#9B1A2D","#1B6831","#F9A003","#777CB2"),
+  plot<- plot(net,vertex.label=NA,edge.curved=0,vertex.color=c("#3A86AD","#05828B","#9B1A2D","#1B6831","#F9A003"),
               edge.lty = ifelse(links$weight =="NS", "dotted","solid"),
               edge.color= ifelse(links$weight =="NS", "gray90","gray40")
               ,layout=layout_in_circle, main = title)
