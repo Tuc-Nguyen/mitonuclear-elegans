@@ -10,53 +10,39 @@ require(tidyverse)
 
 ori.wd = getwd()
 
-# Read in tables, with stringsAsFactors = T
-# StrainCodes.txt modified to remove Originals, leaving only Synthetics
 df = read.table("Processed Summary.txt", header = T, na.strings = NA)
-df = subset(df, n>=5 & n <75)
-#df = subset(df, !(Nuclear == "ECA2367" & Condition == "Copper"))
-df = subset(df, !(Nuclear == "ECA2367" & Metadata_Date =="2012021"))
-df = subset(df, Strain != "QG5050")
-a = plyr::count(df, c("Strain","Condition"))
-
-
-#REMOVE OUTLIER WELLS - Wells with median worm length within 2 standard deviations, and number of worms within 2 SDs, among replicates of that strain in that condition *within the same batch* 
-
-# This removes 567 wells, leaving 8505
-
-newdata = data.frame()
-for (condition in sort(unique(df$Condition))){
-  subcondition = subset(df, Condition == condition)
+data = data.frame()
+for (condition in sort(unique(df$Metadata_Plate))){
+  subcondition = subset(df, Metadata_Plate == condition)
   for (individual in sort(unique(subcondition$Strain))){
     substrain = subset(subcondition, Strain == individual)
     for (batch in sort(unique(substrain$Metadata_Date))){
       subdate = subset(substrain, Metadata_Date == batch)
-      tempdf = subset(subdate, median_wormlength_um < mean(subdate$median_wormlength_um)+ 2*sd(subdate$median_wormlength_um) & median_wormlength_um > mean(subdate$median_wormlength_um)- 2*sd(subdate$median_wormlength_um))
-      tempdf = subset(tempdf, n < mean(subdate$n)+ 2*sd(subdate$n) & n > mean(subdate$n)- 2*sd(subdate$n))
-      if (nrow(tempdf) < 1) {
-        next  # skip this subgroup if there are not enough observations
+      n = plyr::count(subdate, "Metadata_Well")
+      outlier = subset(n, freq <5 | freq > 50) ##remove well with low worms or too many worms
+      ##remove outliers
+      tempdf = subset(subdate, worm_length_um < mean(subdate$worm_length_um)+ sd(subdate$worm_length_um) & worm_length_um > mean(subdate$worm_length_um)- sd(subdate$worm_length_um))
+      if (nrow(outlier)==0){
+        tempdf = tempdf
+        data = rbind(data, tempdf)
+      }else{
+        tempdf = subset(tempdf, !(Metadata_Well %in% outlier$Metadata_Well))
+        data = rbind(data, tempdf)
       }
-      tempdf$Replicate = c(1:nrow(tempdf))
-      newdata = rbind(newdata, tempdf)
     }
   }
 }
 
-mydata = newdata[c(27,21,22,23,28,14,7,13)]
-colnames(mydata) = c("Condition","Strain","Nuclear","Mito","Replicate","Batch","WORMLENGTH","n")
+data = data[c(14,8:10,2:3,7)]
+colnames(data) = c("Condition","Strain","Nuclear","Mito","Replicate","Batch","WORMLENGTH")
+df = subset(data, Nuclear !="ECA2367" & Batch != "4042024")
 
-ggplot(mydata, aes(x= Condition,y=WORMLENGTH))+xlab("CONDITION")+
-  geom_beeswarm(cex=0.65)+scale_y_continuous(breaks = seq(0,1300, by = 50))+
-  theme(panel.grid.major = element_line(colour = "gray", linewidth =0.3), 
-        strip.background = element_blank(),
-        panel.background = element_rect(fill = "white"))
 
-conditions = sort(unique(mydata$Condition))
-correction = data.frame()
+conditions = sort(unique(df$Condition))
 variance.component= data.frame()
 for(condition in conditions){
   
-  subcondition = subset(mydata, Condition == condition)
+  subcondition = subset(df, Condition == condition)
   FM = lmer(WORMLENGTH ~ 1 + (1|Batch) +(1|Nuclear) + (1|Mito) + (1|Nuclear:Mito), data = subcondition) 
   
   vDF = as.data.frame(VarCorr(FM))
@@ -76,20 +62,6 @@ for(condition in conditions){
   variance.component = rbind(variance.component, tempdf)
   
 }
-
-
-
-# What all these columns represent:
-# H2_Nuclear: proportion of phenotypic variance (after exclusion of batch effects) attributable to nuclear genotype
-# H2_Mitochondrial: proportion of phenotypic variance (after exclusion of batch effects) attributable to mitochondrial genotype
-# H2_Mitonuclear: proportion of phenotypic variance (after exclusion of batch effects) attributable to mitonuclear interactions
-# Environment: proportion of phenotypic variance (after exclusion of batch effects) attributable to environmental effects
-# The four above add up to 1.
-# Variance: phenotypic variance (after exclusion of batch effects)
-# H2: heritability, i.e., proportion of phenotypic variance (after exclusion of batch effects) attributable to genetic effects
-# Vnuc_Vg: Fraction of genetic variance attributable to nuclear genotype
-# Vmt_Vg: Fraction of genetic variance attributable to mitochondrial genotype
-# Vmitonuc_Vg: Fraction of genetic variance attributable to mitonuclear interactions
 
 
 proportion = variance.component[c(1,8:10,7)]
@@ -114,7 +86,7 @@ ggplot(proportion, aes(x= 2,y=value,fill=variable,width = 2))+
         strip.background = element_blank(),
         panel.background = element_rect(fill = "white"))
 
-df = mydata
 df$Status = ifelse(df$Nuclear==df$Mito, "Matched","Mismatched")
 
 write.table(df, "FinalDataframe.txt", row.names = FALSE)
+
