@@ -33,10 +33,8 @@ for (condition in sort(unique(df$Metadata_Plate))){
   }
 }
 
-data = data[c(14,8:10,2:3,7)]
+df = data[c(14,8:10,2:3,7)]
 colnames(data) = c("Condition","Strain","Nuclear","Mito","Replicate","Batch","WORMLENGTH")
-df = subset(data, Nuclear !="ECA2367" & Batch != "4042024")
-
 
 conditions = sort(unique(df$Condition))
 variance.component= data.frame()
